@@ -116,6 +116,7 @@ _handleFileDrop(e) {
     }));
 }
 
+// izrise podatke 2d sliko
 _handleRendererChange() {
     if (this.rendererDialog) {
         this.rendererDialog.remove();
@@ -139,7 +140,7 @@ _handleRendererChange() {
     const container = this.mainDialog.getRendererSettingsContainer();
     container.appendChild(this.rendererDialog);
 }
-
+// iz HDR - visok dinamicni razpon pretvori v dinamicni razpon primeren za zaslon
 _handleToneMapperChange() {
     if (this.toneMapperDialog) {
         this.toneMapperDialog.remove();

@@ -1,5 +1,7 @@
 import { DOMUtils } from '../../utils/DOMUtils.js';
 
+// to je tist menu na levi k pise volume spodi
+
 const template = document.createElement('template');
 template.innerHTML = await fetch(new URL('./VolumeLoadDialog.html', import.meta.url))
     .then(response => response.text());

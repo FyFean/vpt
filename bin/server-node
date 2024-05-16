@@ -7,7 +7,7 @@ const path = require('path');
 const basedir = 'build';
 const port = process.env.PORT || 3000;
 
-http.createServer(function(request, response) {
+const server = http.createServer(function(request, response) {
     const range = request.headers.range;
     if (range) {
         console.log(request.method, request.url, range);
@@ -100,6 +100,18 @@ http.createServer(function(request, response) {
         response.end();
     }
 
-}).listen(port);
+})
 
-console.log('Listening on port ' + port);
+server.listen(port, () => {
+    console.log('Listening on port ' + port);
+});
+
+// Handle SIGINT (Ctrl + C) gracefully
+process.on('SIGINT', () => {
+    console.log('\nShutting down gracefully...');
+    server.close(() => {
+        console.log('Server is gracefully closed.');
+        process.exit(0);
+    });
+});
+

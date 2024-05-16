@@ -16,6 +16,8 @@ void main() {
     gl_Position = vec4(position, 0, 1);
 }
 
+// ta dela s fotoni
+
 // #part /glsl/shaders/renderers/MCM/integrate/fragment
 
 #version 300 es
@@ -70,11 +72,11 @@ layout (location = 3) out vec4 oRadiance;
 void resetPhoton(inout uint state, inout Photon photon) {
     vec3 from, to;
     unprojectRand(state, vPosition, uMvpInverseMatrix, uInverseResolution, uBlur, from, to);
-    photon.direction = normalize(to - from);
-    photon.bounces = 0u;
+    photon.direction = normalize(to - from); //v vsakmu pikslu shranjujemo ne sam barve ampak tud smer fotona, bounces, 
+    photon.bounces = 0u; //kokrat se je foton odbiu znotraj volumna
     vec2 tbounds = max(intersectCube(from, photon.direction), 0.0);
     photon.position = from + tbounds.x * photon.direction;
-    photon.transmittance = vec3(1);
+    photon.transmittance = vec3(1); //prepustnost materiala do te tocke
 }
 
 vec4 sampleEnvironmentMap(vec3 d) {

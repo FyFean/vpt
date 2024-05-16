@@ -7,6 +7,13 @@ uniform mat4 uMvpInverseMatrix;
 out vec3 vRayFrom;
 out vec3 vRayTo;
 
+// vsi shaderji k so za MIP renderer, za vsak shader je vertex in fragment shader
+// shaderji se zapakirajo nakonc v en json format, v shaders.json
+
+
+// ta @unproject je mixin kar je neka funckija k jo lhko klices skoz in se pr buildu notr poturi, unproject je ime mixina
+// v webgl.js je buildPrograms funkcija ki najde to afno in jo zamena z mixinom k builda, src/glsl/mixins
+
 // #link /glsl/mixins/unproject
 @unproject
 
@@ -18,7 +25,7 @@ const vec2 vertices[] = vec2[](
 
 void main() {
     vec2 position = vertices[gl_VertexID];
-    unproject(position, uMvpInverseMatrix, vRayFrom, vRayTo);
+    unproject(position, uMvpInverseMatrix, vRayFrom, vRayTo); 
     gl_Position = vec4(position, 0, 1);
 }
 
@@ -49,10 +56,10 @@ vec4 sampleVolumeColor(vec3 position) {
 }
 
 void main() {
-    vec3 rayDirection = vRayTo - vRayFrom;
-    vec2 tbounds = max(intersectCube(vRayFrom, rayDirection), 0.0);
+    vec3 rayDirection = vRayTo - vRayFrom; //generiramo zarek v unproject zgoraj
+    vec2 tbounds = max(intersectCube(vRayFrom, rayDirection), 0.0); // kje se zarek seka s kocko
     if (tbounds.x >= tbounds.y) {
-        oColor = 0.0;
+        oColor = 0.0; // ce se ne seka je output 0, ce se samplamo ta volumn
     } else {
         vec3 from = mix(vRayFrom, vRayTo, tbounds.x);
         vec3 to = mix(vRayFrom, vRayTo, tbounds.y);
@@ -63,7 +70,7 @@ void main() {
         vec3 pos;
         do {
             pos = mix(from, to, offset);
-            val = max(sampleVolumeColor(pos).a, val);
+            val = max(sampleVolumeColor(pos).a, val); //samplamo ta max in ga v korakih posodabljamo
             t += uStepSize;
             offset = mod(offset + uStepSize, 1.0);
         } while (t < 1.0);
@@ -103,9 +110,9 @@ in vec2 vPosition;
 out float oColor;
 
 void main() {
-    float acc = texture(uAccumulator, vPosition).r;
-    float frame = texture(uFrame, vPosition).r;
-    oColor = max(acc, frame);
+    float acc = texture(uAccumulator, vPosition).r; // uAccumulator je to kar je blo ze prej na sliki
+    float frame = texture(uFrame, vPosition).r; // uFrame je kar smo lihkar zgeneriral, to je max sample k smo ga zgori izracunal
+    oColor = max(acc, frame); // vzame max teh dveh, nato gre to v render korak
 }
 
 // #part /glsl/shaders/renderers/MIP/render/vertex
@@ -126,7 +133,7 @@ void main() {
     gl_Position = vec4(position, 0, 1);
 }
 
-// #part /glsl/shaders/renderers/MIP/render/fragment
+// #part /glsl/shaders/renderers/MIP/render/fragment -> tuki dejansko izrisemo na piksl rgb barvo
 
 #version 300 es
 precision mediump float;
@@ -140,10 +147,10 @@ out vec4 oColor;
 
 void main() {
     float acc = texture(uAccumulator, vPosition).r;
-    oColor = vec4(acc, acc, acc, 1);
+    oColor = vec4(acc, acc, acc, 1); // dobimo akumulirano vrednosti in jo zapisemo na 3 rbg kanale, lhko to tud poljubno spremenimo
 }
 
-// #part /glsl/shaders/renderers/MIP/reset/vertex
+// #part /glsl/shaders/renderers/MIP/reset/vertex -> ko se pogled kamere spremeni se poenostavijo vrendnosti 
 
 #version 300 es
 

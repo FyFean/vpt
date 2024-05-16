@@ -49,7 +49,7 @@ vec4 sampleVolumeColor(vec3 position) {
     return transferSample;
 }
 
-void main() {
+void main() { //gremo cez volumen, kjer se zark seka skozi kocko, izracunas fiksno kaksna je dolzina koraka, prinesemo bias s tem notr -> to das lhko v monte carlo obliko kjer zgeneriras sample in integriras spodi v to kar je ze prej bilo na sliki
     vec3 rayDirection = vRayTo - vRayFrom;
     vec2 tbounds = max(intersectCube(vRayFrom, rayDirection), 0.0);
     if (tbounds.x >= tbounds.y) {
@@ -149,7 +149,7 @@ in vec2 vPosition;
 out vec4 oColor;
 
 void main() {
-    oColor = texture(uAccumulator, vPosition);
+    oColor = texture(uAccumulator, vPosition); //samo prenesemo teksturo
 }
 
 // #part /glsl/shaders/renderers/EAM/reset/vertex

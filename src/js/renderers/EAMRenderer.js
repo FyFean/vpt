@@ -99,7 +99,7 @@ _generateFrame() {
     gl.uniform1i(uniforms.uVolume, 0);
     gl.uniform1i(uniforms.uTransferFunction, 1);
     gl.uniform1f(uniforms.uStepSize, 1 / this.slices);
-    gl.uniform1f(uniforms.uExtinction, this.extinction);
+    gl.uniform1f(uniforms.uExtinction, this.extinction);  //sets a global variable called uniforms.uExtinction based on this.extinction 
     gl.uniform1f(uniforms.uOffset, this.random ? Math.random() : 0);
 
     const centerMatrix = mat4.fromTranslation(mat4.create(), [-0.5, -0.5, -0.5]);

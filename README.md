@@ -19,6 +19,14 @@ bin/server-node
 
 There's a working build with a few demo datasets available [here](http://lgm.fri.uni-lj.si/~ziga).
 
+## Making changes
+```
+ctrl + c to stop the server
+bin/packer
+bin/server-node to restart it
+cmd + shift + r in browser
+```
+
 ## License
 
 This project is licensed under the **GNU General Public License, version 3**.

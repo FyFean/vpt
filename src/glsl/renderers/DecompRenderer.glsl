@@ -1,4 +1,4 @@
-// #part /glsl/shaders/renderers/MCM/integrate/vertex
+// #part /glsl/shaders/renderers/DECOMP/integrate/vertex
 
 #version 300 es
 
@@ -9,6 +9,8 @@ const vec2 vertices[] = vec2[](
 );
 
 out vec2 vPosition;
+out vec4 oDebug; // Add this line to declare oDebug
+
 
 void main() {
     vec2 position = vertices[gl_VertexID];
@@ -18,7 +20,7 @@ void main() {
 
 // ta dela s fotoni
 
-// #part /glsl/shaders/renderers/MCM/integrate/fragment
+// #part /glsl/shaders/renderers/DECOMP/integrate/fragment
 
 #version 300 es
 precision mediump float;
@@ -84,9 +86,10 @@ vec4 sampleEnvironmentMap(vec3 d) {
     return texture(uEnvironment, texCoord);
 }
 
+// returm color and opacity of a sampled voxel based on density, uTransferFunction -> translates the raw scalar values from your volume data into visually meaningful colors and opacities for rendering.
 vec4 sampleVolumeColor(vec3 position) {
-    vec2 volumeSample = texture(uVolume, position).rg;
-    vec4 transferSample = texture(uTransferFunction, volumeSample);
+    vec2 volumeSample = texture(uVolume, position).rg; // raw values, sample a 2D vector from the volume texture (uVolume) at the specified position
+    vec4 transferSample = texture(uTransferFunction, volumeSample); //samples uTransferFunction, mapping between input values (often representing density or other scalar information) and output color and opacity values.
     return transferSample;
 }
 
@@ -116,7 +119,7 @@ float mean3(vec3 v) {
 }
 
 void main() {
-Photon photon;
+    Photon photon;
     vec2 mappedPosition = vPosition * 0.5 + 0.5;
     photon.position = texture(uPosition, mappedPosition).xyz; // initial position for the photon based on the current pixel's location within the volume.
     vec4 directionAndBounces = texture(uDirection, mappedPosition); 
@@ -126,46 +129,89 @@ Photon photon;
     vec4 radianceAndSamples = texture(uRadiance, mappedPosition);
     photon.radiance = radianceAndSamples.rgb;
     photon.samples = uint(radianceAndSamples.w + 0.5);
+    float w = 1.0;
 
     uint state = hash(uvec3(floatBitsToUint(mappedPosition.x), floatBitsToUint(mappedPosition.y), floatBitsToUint(uRandSeed)));
     for (uint i = 0u; i < uSteps; i++) { // simulira rekurzijo
 
         float dist = random_exponential(state, uExtinction); //sampling distance to the first collision t = - ln (1-random) / uExtinction, samplamo u = [0,1], da ga plugamo v P^-1, majorant = mu_t + mu_null => constant
-        photon.position += dist * photon.direction; // updates the photon's position based on the calculated distance and its direction.
+        photon.position += dist * photon.direction; // x = x + tw, (t-dist, w-direction)
         vec4 volumeSample = sampleVolumeColor(photon.position);
 
-        float PNull = 1.0 - volumeSample.a; // probability of null collision is 1 - opacity
-        float PScattering;
-        if (photon.bounces >= uMaxBounces) {
-            PScattering = 0.0;   //ce je ze max bounces potem je scattering = 0
-        } else {
-            PScattering = volumeSample.a * max3(volumeSample.rgb);  // based on the volumes opacity and max color channel value 
-        }
-        float PAbsorption = 1.0 - PNull - PScattering; // Pa + Ps + Pn = 1
+        float majorant = 1.0 + uExtinction; // extinction = 1
 
-        float fortuneWheel = random_uniform(state);
+        float mu_n = majorant - volumeSample.a; 
+        float mu_s = volumeSample.a * max3(volumeSample.rgb);
+        float mu_a = majorant - mu_n - mu_s;
+
+        
+
+        float Pa = mu_a / (1.0 +  max(mu_n, -mu_n)); // mu_a / (mu_t + abs(mu_n))
+        float Ps = (photon.bounces >= uMaxBounces) ? 0.0 :  mu_s / (1.0 +  max(mu_n, -mu_n)); // mu_s / (mu_t + abs(mu_n))
+        float Pn = max(mu_n, -mu_n) / (1.0 +  max(mu_n, -mu_n)); // abs(mu_n) / (mu_t + abs(mu_n))
+
+        float totalP = Pa + Ps + Pn;
+        float fortuneWheel = random_uniform(state) * totalP; // [0,majorant]
+        // float fortuneWheel = random_uniform(state) * majorant; // [0,majorant]
+        // debugTexture[gl_FragCoord.xy] = vec4(Pa, Ps, Pn, 1.0);
+
+         vec3 debugValues = vec3(Pa, Ps, Pn);
+
+
+
+       
+
+
+
+
+        // float PNull = 1.0 - volumeSample.a; // probability of null collision is 1 - opacity
+        // float PScattering;
+        // if (photon.bounces >= uMaxBounces) {
+        //     PScattering = 0.0;   //ce je ze max bounces potem je scattering = 0
+        // } else {
+        //     PScattering = volumeSample.a * max3(volumeSample.rgb);  // based on the volumes opacity and max color channel value 
+        // }
+        // float PAbsorption = 1.0 - PNull - PScattering; // Pa + Ps + Pn = 1
+        // float fortuneWheel = random_uniform(state); // [0,1] need to fix this line
+
         if (any(greaterThan(photon.position, vec3(1))) || any(lessThan(photon.position, vec3(0)))) { // we hit a boundary
             // out of bounds
             vec4 envSample = sampleEnvironmentMap(photon.direction);  //kao zadi za volumom (recimo sky)
-            vec3 radiance = photon.transmittance * envSample.rgb; //sevalnost L = prosojnost * environment, L je trenutna intenziteta
+            vec3 radiance = photon.transmittance * envSample.rgb; //sevalnost L = prosojnost * environment * w, L je trenutna intenziteta
             photon.samples++;
             photon.radiance += (radiance - photon.radiance) / float(photon.samples); //incremental averaging, curr + (new - curr) / sample count 
             resetPhoton(state, photon);
-        } else if (fortuneWheel < PAbsorption) { 
+            w = 1.0;
+        } else if (fortuneWheel < Pa) { 
             // absorption -> photon radiance = 0, reset the photon
             vec3 radiance = vec3(0); //emisije ni, Le
             photon.samples++;
             photon.radiance += (radiance - photon.radiance) / float(photon.samples);
             resetPhoton(state, photon);
-        } else if (fortuneWheel < PAbsorption + PScattering) {
+            // Apply weight for absorption, Le = 0, w = mu_a * Le/... -> no weight bc no absorbtion
+            w = 1.0;
+        } else if (fortuneWheel < Pa + Ps) {
             // scattering -> update transmittance and direction of a photon, mu_s * Ls, Ls je izracunan kot integral phase functiona * L
             photon.transmittance *= volumeSample.rgb;
             photon.direction = sampleHenyeyGreenstein(state, uAnisotropy, photon.direction); //phase function km se odbija
             photon.bounces++;
+            // float weightS = mu_s / (majorant * Ps);
+            float weightS = Ps * (mu_s / 1.0);
+
+            w *= weightS; // Apply weight for scattering
         } else {
             // null collision, Ln je ubistvu L, seva samo v eno smer
+            // float weightN = max(mu_n, -mu_n) / (majorant * Pn);
+            float weightN = Pn * (mu_n / 1.0);
+
+            w *= weightN;
         }
+
+        // oDebug = vec4(Pa, Ps, Pn, 1.0); // Output debug values
     }
+    photon.radiance *= w;
+    // photon.radiance *= 0.0001;
+
 
     oPosition = vec4(photon.position, 0);
     oDirection = vec4(photon.direction, float(photon.bounces));
@@ -173,7 +219,7 @@ Photon photon;
     oRadiance = vec4(photon.radiance, float(photon.samples));
 }
 
-// #part /glsl/shaders/renderers/MCM/render/vertex
+// #part /glsl/shaders/renderers/DECOMP/render/vertex
 
 #version 300 es
 
@@ -191,7 +237,7 @@ void main() {
     gl_Position = vec4(position, 0, 1);
 }
 
-// #part /glsl/shaders/renderers/MCM/render/fragment
+// #part /glsl/shaders/renderers/DECOMP/render/fragment
 
 #version 300 es
 precision mediump float;
@@ -207,7 +253,7 @@ void main() {
     oColor = vec4(texture(uColor, vPosition).rgb, 1);
 }
 
-// #part /glsl/shaders/renderers/MCM/reset/vertex
+// #part /glsl/shaders/renderers/DECOMP/reset/vertex
 
 #version 300 es
 
@@ -225,7 +271,7 @@ void main() {
     gl_Position = vec4(position, 0, 1);
 }
 
-// #part /glsl/shaders/renderers/MCM/reset/fragment
+// #part /glsl/shaders/renderers/DECOMP/reset/fragment
 
 #version 300 es
 precision mediump float;

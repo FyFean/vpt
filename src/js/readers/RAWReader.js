@@ -59,6 +59,8 @@ async readMetadata() {
         });
     }
 
+    console.log("iz RAWrenderer.js", metadata)
+
     return metadata;
 }
 

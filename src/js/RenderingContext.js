@@ -68,6 +68,8 @@ initGL() {
         preserveDrawingBuffer: true,
     };
 
+        
+
     this.contextRestorable = true;
 
     this.gl = this.canvas.getContext('webgl2', contextSettings);

@@ -25,6 +25,7 @@ async readMetadata() {
     if (!this.metadata) {
         this.metadata = await this._reader.readMetadata();
     }
+    console.log( "iz volume.js:",this.metadata)
     return this.metadata;
 }
 

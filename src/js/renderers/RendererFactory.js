@@ -6,6 +6,8 @@ import { MCSRenderer } from './MCSRenderer.js';
 import { MCMRenderer } from './MCMRenderer.js';
 import { DOSRenderer } from './DOSRenderer.js';
 import { DepthRenderer } from './DepthRenderer.js';
+import { DeltaRenderer } from './DeltaRenderer.js';
+import { DecompRenderer } from './DecompRenderer.js';
 
 export function RendererFactory(which) {
     switch (which) {
@@ -17,6 +19,8 @@ export function RendererFactory(which) {
         case 'mcm': return MCMRenderer;
         case 'dos': return DOSRenderer;
         case 'depth': return DepthRenderer;
+        case 'delta': return DeltaRenderer;
+        case 'decomp': return DecompRenderer;
 
         default: throw new Error('No suitable class');
     }

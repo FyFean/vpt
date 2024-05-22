@@ -84,6 +84,7 @@ static createProgram(gl, shaders) {
 
 static buildPrograms(gl, shaders, mixins) {
     const cooked = {};
+    console.log("wbgls", shaders);
     for (const name in shaders) {
         cooked[name] = {};
         const types = shaders[name];
@@ -103,7 +104,7 @@ static buildPrograms(gl, shaders, mixins) {
         try {
             const program = cooked[name];
             programs[name] = WebGL.createProgram(gl, [
-                WebGL.createShader(gl, program.vertex, gl.VERTEX_SHADER),
+                WebGL.createShader(gl, program.vertex, gl.VERTEX_SHADER), //gl, source, type
                 WebGL.createShader(gl, program.fragment, gl.FRAGMENT_SHADER),
             ]);
         } catch (e) {

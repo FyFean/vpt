@@ -138,20 +138,25 @@ void main() {
         photon.position += dist * photon.direction; // x = x + tw, (t-dist, w-direction)
         vec4 volumeSample = sampleVolumeColor(photon.position);
 
-        float majorant = 1.0 + uExtinction; // extinction = 1
-
+        
+  
+        float majorant = 1.0; // extinction = 1
         float mu_n = majorant - volumeSample.a; 
         float mu_s = volumeSample.a * max3(volumeSample.rgb);
         float mu_a = majorant - mu_n - mu_s;
+        float mu_t = mu_s + mu_a;
 
-        
+        float Pa = mu_a / (mu_t +  max(mu_n, -mu_n)); // mu_a / (mu_t + abs(mu_n))
+        float Ps = (photon.bounces >= uMaxBounces) ? 0.0 :  mu_s / (mu_t +  max(mu_n, -mu_n)); // mu_s / (mu_t + abs(mu_n))
+        float Pn = max(mu_n, -mu_n) / (mu_t +  max(mu_n, -mu_n)); // abs(mu_n) / (mu_t + abs(mu_n))
 
-        float Pa = mu_a / (1.0 +  max(mu_n, -mu_n)); // mu_a / (mu_t + abs(mu_n))
-        float Ps = (photon.bounces >= uMaxBounces) ? 0.0 :  mu_s / (1.0 +  max(mu_n, -mu_n)); // mu_s / (mu_t + abs(mu_n))
-        float Pn = max(mu_n, -mu_n) / (1.0 +  max(mu_n, -mu_n)); // abs(mu_n) / (mu_t + abs(mu_n))
+
+
 
         float totalP = Pa + Ps + Pn;
-        float fortuneWheel = random_uniform(state) * totalP; // [0,majorant]
+        // float fortuneWheel = random_uniform(state) * totalP; // [0,majorant]
+        float fortuneWheel = random_uniform(state); // [0,majorant]
+
         // float fortuneWheel = random_uniform(state) * majorant; // [0,majorant]
         // debugTexture[gl_FragCoord.xy] = vec4(Pa, Ps, Pn, 1.0);
 
@@ -195,14 +200,16 @@ void main() {
             photon.transmittance *= volumeSample.rgb;
             photon.direction = sampleHenyeyGreenstein(state, uAnisotropy, photon.direction); //phase function km se odbija
             photon.bounces++;
-            // float weightS = mu_s / (majorant * Ps);
-            float weightS = Ps * (mu_s / 1.0);
+            float weightS = mu_s / (majorant * Ps);
+            // float weightS = Ps * (mu_s / 1.0);
 
             w *= weightS; // Apply weight for scattering
         } else {
             // null collision, Ln je ubistvu L, seva samo v eno smer
             // float weightN = max(mu_n, -mu_n) / (majorant * Pn);
-            float weightN = Pn * (mu_n / 1.0);
+            float weightN = mu_n / (majorant * Pn);
+
+            // float weightN = Pn * (mu_n / 1.0);
 
             w *= weightN;
         }

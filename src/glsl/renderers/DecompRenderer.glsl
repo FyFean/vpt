@@ -129,16 +129,27 @@ void main() {
     vec4 radianceAndSamples = texture(uRadiance, mappedPosition);
     photon.radiance = radianceAndSamples.rgb;
     photon.samples = uint(radianceAndSamples.w + 0.5);
-    float w = 1.0;
 
     uint state = hash(uvec3(floatBitsToUint(mappedPosition.x), floatBitsToUint(mappedPosition.y), floatBitsToUint(uRandSeed)));
-    for (uint i = 0u; i < uSteps; i++) { // simulira rekurzijo
-
-        float dist = random_exponential(state, uExtinction); //sampling distance to the first collision t = - ln (1-random) / uExtinction, samplamo u = [0,1], da ga plugamo v P^-1, majorant = mu_t + mu_null => constant
-        photon.position += dist * photon.direction; // x = x + tw, (t-dist, w-direction)
-        vec4 volumeSample = sampleVolumeColor(photon.position);
+    for (uint i = 0u; i < uSteps; i++) {
 
         float majorant = 1.0 + uExtinction; // extinction = 1
+        float dist_c = random_exponential(state, uExtinction); //sampling distance to the first collision t = - ln (1-random) / uExtinction, samplamo u = [0,1], da ga plugamo v P^-1, majorant = mu_t + mu_null => constant
+        float dist_r = 0.0;
+        while(True){
+            dist_r -= random_exponential(state, (majorant - uExtinction)); // a je to ok
+            if (dist_t > dist_c){
+                photon.position += dist * photon.direction; // x = x + tw, (t-dist, w-direction)
+                //delta pomoje od tuki naprej
+
+            }
+
+
+
+        }
+
+        vec4 volumeSample = sampleVolumeColor(photon.position);
+
 
         float mu_n = majorant - volumeSample.a; 
         float mu_s = volumeSample.a * max3(volumeSample.rgb);

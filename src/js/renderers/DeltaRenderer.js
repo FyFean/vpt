@@ -192,6 +192,7 @@ _integrateFrame() {
     gl.uniform1f(uniforms.uBlur, 0);
 
     gl.uniform1f(uniforms.uExtinction, this.extinction);
+    console.log( this.extinction, uniforms.uExtinction);
     gl.uniform1f(uniforms.uAnisotropy, this.anisotropy);
     gl.uniform1ui(uniforms.uMaxBounces, this.bounces);
     gl.uniform1ui(uniforms.uSteps, this.steps);

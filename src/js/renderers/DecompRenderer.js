@@ -24,6 +24,14 @@ constructor(gl, volume, camera, environmentTexture, options = {}) {
             min: 0,
         },
         {
+            name: 'minorant_ratio',
+            label: 'Minorant ratio',
+            type: 'slider',
+            value: 0.9,
+            min: 0,
+            max: 1,
+        },
+        {
             name: 'anisotropy',
             label: 'Anisotropy',
             type: 'slider',
@@ -62,6 +70,7 @@ constructor(gl, volume, camera, environmentTexture, options = {}) {
 
         if ([
             'extinction',
+            'minorant_ratio',
             'anisotropy',
             'bounces',
             'transferFunction',
@@ -192,6 +201,9 @@ _integrateFrame() {
     gl.uniform1f(uniforms.uBlur, 0);
 
     gl.uniform1f(uniforms.uExtinction, this.extinction);
+    gl.uniform1f(uniforms.uMinorantRatio, this.minorant_ratio);
+    console.log("minorant_ratio", this.minorant_ratio);
+
     gl.uniform1f(uniforms.uAnisotropy, this.anisotropy);
     gl.uniform1ui(uniforms.uMaxBounces, this.bounces);
     gl.uniform1ui(uniforms.uSteps, this.steps);

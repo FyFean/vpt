@@ -63,6 +63,7 @@ uniform float uExtinction;
 uniform float uAnisotropy;
 uniform uint uMaxBounces;
 uniform uint uSteps;
+uniform float uMajorantRatio;
 
 in vec2 vPosition;
 
@@ -129,55 +130,41 @@ void main() {
     vec4 radianceAndSamples = texture(uRadiance, mappedPosition);
     photon.radiance = radianceAndSamples.rgb;
     photon.samples = uint(radianceAndSamples.w + 0.5);
+        
+        // float uMajorantRatio = 1.0;
+        // float majorant = uExtinction * uMajorantRatio;
+        // float majorant = 1.0;
+        
+        // float mu_n = (1.0 - volumeSample.a) * uExtinction * uMajorantRatio; 
+
+        //before lesar fix
+        // float majorant = 1.0; // extinction = 1
+        // float mu_n = majorant - volumeSample.a; 
+        // float mu_s = volumeSample.a * max3(volumeSample.rgb);
+        // float mu_a = majorant - mu_n - mu_s;
+        // float mu_t = mu_s + mu_a;
+        // before lesar fix
     float w = 1.0;
 
     uint state = hash(uvec3(floatBitsToUint(mappedPosition.x), floatBitsToUint(mappedPosition.y), floatBitsToUint(uRandSeed)));
     for (uint i = 0u; i < uSteps; i++) { // simulira rekurzijo
 
-        float dist = random_exponential(state, uExtinction); //sampling distance to the first collision t = - ln (1-random) / uExtinction, samplamo u = [0,1], da ga plugamo v P^-1, majorant = mu_t + mu_null => constant
+        float dist = random_exponential(state, uExtinction * uMajorantRatio); //sampling distance to the first collision t = - ln (1-random) / uExtinction, samplamo u = [0,1], da ga plugamo v P^-1, majorant = mu_t + mu_null => constant
         photon.position += dist * photon.direction; // x = x + tw, (t-dist, w-direction)
         vec4 volumeSample = sampleVolumeColor(photon.position);
 
-        
-  
-        float majorant = 1.0; // extinction = 1
-        float mu_n = majorant - volumeSample.a; 
-        float mu_s = volumeSample.a * max3(volumeSample.rgb);
-        float mu_a = majorant - mu_n - mu_s;
-        float mu_t = mu_s + mu_a;
+        float mu_t = volumeSample.a * uExtinction; // extinction coeffx
+        float mu_n = (uMajorantRatio - volumeSample.a) * uExtinction; 
+        float mu_s =  max3(volumeSample.rgb) * mu_t;
+        float mu_a = (1.0 - max3(volumeSample.rgb)) * mu_t;
 
         float Pa = mu_a / (mu_t +  max(mu_n, -mu_n)); // mu_a / (mu_t + abs(mu_n))
         float Ps = (photon.bounces >= uMaxBounces) ? 0.0 :  mu_s / (mu_t +  max(mu_n, -mu_n)); // mu_s / (mu_t + abs(mu_n))
         float Pn = max(mu_n, -mu_n) / (mu_t +  max(mu_n, -mu_n)); // abs(mu_n) / (mu_t + abs(mu_n))
 
-
-
-
-        float totalP = Pa + Ps + Pn;
-        // float fortuneWheel = random_uniform(state) * totalP; // [0,majorant]
-        float fortuneWheel = random_uniform(state); // [0,majorant]
-
+        // float totalP = Pa + Ps + Pn;
+        float fortuneWheel = random_uniform(state) * uMajorantRatio; // [0,majorant]
         // float fortuneWheel = random_uniform(state) * majorant; // [0,majorant]
-        // debugTexture[gl_FragCoord.xy] = vec4(Pa, Ps, Pn, 1.0);
-
-         vec3 debugValues = vec3(Pa, Ps, Pn);
-
-
-
-       
-
-
-
-
-        // float PNull = 1.0 - volumeSample.a; // probability of null collision is 1 - opacity
-        // float PScattering;
-        // if (photon.bounces >= uMaxBounces) {
-        //     PScattering = 0.0;   //ce je ze max bounces potem je scattering = 0
-        // } else {
-        //     PScattering = volumeSample.a * max3(volumeSample.rgb);  // based on the volumes opacity and max color channel value 
-        // }
-        // float PAbsorption = 1.0 - PNull - PScattering; // Pa + Ps + Pn = 1
-        // float fortuneWheel = random_uniform(state); // [0,1] need to fix this line
 
         if (any(greaterThan(photon.position, vec3(1))) || any(lessThan(photon.position, vec3(0)))) { // we hit a boundary
             // out of bounds
@@ -186,7 +173,7 @@ void main() {
             photon.samples++;
             photon.radiance += (radiance - photon.radiance) / float(photon.samples); //incremental averaging, curr + (new - curr) / sample count 
             resetPhoton(state, photon);
-            w = 1.0;
+            // w = 1.0;
         } else if (fortuneWheel < Pa) { 
             // absorption -> photon radiance = 0, reset the photon
             vec3 radiance = vec3(0); //emisije ni, Le
@@ -194,31 +181,29 @@ void main() {
             photon.radiance += (radiance - photon.radiance) / float(photon.samples);
             resetPhoton(state, photon);
             // Apply weight for absorption, Le = 0, w = mu_a * Le/... -> no weight bc no absorbtion
-            w = 1.0;
+            // w = 1.0;
         } else if (fortuneWheel < Pa + Ps) {
-            // scattering -> update transmittance and direction of a photon, mu_s * Ls, Ls je izracunan kot integral phase functiona * L
-            photon.transmittance *= volumeSample.rgb;
             photon.direction = sampleHenyeyGreenstein(state, uAnisotropy, photon.direction); //phase function km se odbija
             photon.bounces++;
-            float weightS = mu_s / (majorant * Ps);
-            // float weightS = Ps * (mu_s / 1.0);
-
-            w *= weightS; // Apply weight for scattering
+            float weightS = mu_s / (uExtinction * uMajorantRatio * Ps); // mu_s / (majorant * Ps)
+            photon.transmittance *= volumeSample.rgb;
+            photon.transmittance *= weightS;
+            // photon.transmittance.g *= weightS;
+            // photon.transmittance.b *= weightS;
+            // w *= weightS;
         } else {
+            float weightN = mu_n / (uExtinction * uMajorantRatio * Pn); // mu_n / (majorant * Pn)
+            photon.transmittance *= weightN;
+            // photon.transmittance.g *= weightN;
+            // photon.transmittance.b *= weightN;
+            // w *= weightN;
             // null collision, Ln je ubistvu L, seva samo v eno smer
-            // float weightN = max(mu_n, -mu_n) / (majorant * Pn);
-            float weightN = mu_n / (majorant * Pn);
-
-            // float weightN = Pn * (mu_n / 1.0);
-
-            w *= weightN;
         }
 
         // oDebug = vec4(Pa, Ps, Pn, 1.0); // Output debug values
     }
-    photon.radiance *= w;
-    // photon.radiance *= 0.0001;
 
+    // photon.transmittance *= w;
 
     oPosition = vec4(photon.position, 0);
     oDirection = vec4(photon.direction, float(photon.bounces));

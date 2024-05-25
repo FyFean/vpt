@@ -61,6 +61,7 @@ uniform float uBlur;
 
 uniform float uExtinction;
 uniform float uAnisotropy;
+uniform float uMinorantRatio;
 uniform uint uMaxBounces;
 uniform uint uSteps;
 
@@ -118,6 +119,8 @@ float mean3(vec3 v) {
     return dot(v, vec3(1.0 / 3.0));
 }
 
+
+
 void main() {
     Photon photon;
     vec2 mappedPosition = vPosition * 0.5 + 0.5;
@@ -130,61 +133,49 @@ void main() {
     photon.radiance = radianceAndSamples.rgb;
     photon.samples = uint(radianceAndSamples.w + 0.5);
 
+    /// control coefficients + probabilities
+    float mu_t_control = uMinorantRatio; // verjetno * uExtinction
+    // float mu_t_control = 0.2; // verjetno * uExtinction
+
+    float mu_s_control = 0.5 * mu_t_control; 
+    float mu_a_control = 0.5 * mu_t_control;
+
+    float Pa_control = mu_a_control / uExtinction; //0.1
+    float Ps_control = mu_s_control / uExtinction; //0.1
+
     uint state = hash(uvec3(floatBitsToUint(mappedPosition.x), floatBitsToUint(mappedPosition.y), floatBitsToUint(uRandSeed)));
     for (uint i = 0u; i < uSteps; i++) {
 
-        float majorant = 1.0 + uExtinction; // extinction = 1
-        float dist_c = random_exponential(state, uExtinction); //sampling distance to the first collision t = - ln (1-random) / uExtinction, samplamo u = [0,1], da ga plugamo v P^-1, majorant = mu_t + mu_null => constant
-        float dist_r = 0.0;
-        while(True){
-            dist_r -= random_exponential(state, (majorant - uExtinction)); // a je to ok
-            if (dist_t > dist_c){
-                photon.position += dist * photon.direction; // x = x + tw, (t-dist, w-direction)
-                //delta pomoje od tuki naprej
-
-            }
-
-
-
-        }
-
+        float dist = random_exponential(state, uExtinction);
+        photon.position += dist * photon.direction;
         vec4 volumeSample = sampleVolumeColor(photon.position);
 
+        ///normal coeff od prej
+        float mu_t = volumeSample.a * uExtinction; // extinction coeffx
+        float mu_s =  max3(volumeSample.rgb) * mu_t;
+        float mu_a = (1.0 - max3(volumeSample.rgb)) * mu_t;
 
-        float mu_n = majorant - volumeSample.a; 
-        float mu_s = volumeSample.a * max3(volumeSample.rgb);
-        float mu_a = majorant - mu_n - mu_s;
+        /// residual coefficients
+        float mu_t_residual = mu_t - mu_t_control; 
+        float mu_s_residual = mu_s - mu_s_control;
+        float mu_a_residual = mu_a - mu_a_control;
 
-        
+        float mu_n = uExtinction - mu_t_control - mu_t_residual; // majorant - mu_t_c - mu_t_r 
 
-        float Pa = mu_a / (1.0 +  max(mu_n, -mu_n)); // mu_a / (mu_t + abs(mu_n))
-        float Ps = (photon.bounces >= uMaxBounces) ? 0.0 :  mu_s / (1.0 +  max(mu_n, -mu_n)); // mu_s / (mu_t + abs(mu_n))
-        float Pn = max(mu_n, -mu_n) / (1.0 +  max(mu_n, -mu_n)); // abs(mu_n) / (mu_t + abs(mu_n))
-
-        float totalP = Pa + Ps + Pn;
-        float fortuneWheel = random_uniform(state) * totalP; // [0,majorant]
-        // float fortuneWheel = random_uniform(state) * majorant; // [0,majorant]
-        // debugTexture[gl_FragCoord.xy] = vec4(Pa, Ps, Pn, 1.0);
-
-         vec3 debugValues = vec3(Pa, Ps, Pn);
-
+        // float mu_t_residual = volumeSample.a * uExtinction; // majorant = uExtinction zdj
+        // float mu_n = (uExtinction - volumeSample.a) * uExtinction; 
+        // float mu_s_residual =  max3(volumeSample.rgb) * mu_t_residual;
+        // float mu_a_residual = (1.0 - max3(volumeSample.rgb)) * mu_t_residual;
 
 
-       
+        float spodi = (max(mu_a_residual, -mu_a_residual) + max(mu_s_residual, -mu_s_residual) + max(mu_n, -mu_n));
+        float Pnot_control = (1.0 - mu_t_control / uExtinction);
+        float Pa_residual = Pnot_control * ( max(mu_a_residual, -mu_a_residual) / spodi);
+        float Ps_residual = Pnot_control * ( max(mu_s_residual, -mu_s_residual) / spodi);
+        float Pn = Pnot_control * ( max(mu_n, -mu_n) / spodi);
 
-
-
-
-        // float PNull = 1.0 - volumeSample.a; // probability of null collision is 1 - opacity
-        // float PScattering;
-        // if (photon.bounces >= uMaxBounces) {
-        //     PScattering = 0.0;   //ce je ze max bounces potem je scattering = 0
-        // } else {
-        //     PScattering = volumeSample.a * max3(volumeSample.rgb);  // based on the volumes opacity and max color channel value 
-        // }
-        // float PAbsorption = 1.0 - PNull - PScattering; // Pa + Ps + Pn = 1
-        // float fortuneWheel = random_uniform(state); // [0,1] need to fix this line
-
+        float fortuneWheel = random_uniform(state);
+        float F = 0.0;
         if (any(greaterThan(photon.position, vec3(1))) || any(lessThan(photon.position, vec3(0)))) { // we hit a boundary
             // out of bounds
             vec4 envSample = sampleEnvironmentMap(photon.direction);  //kao zadi za volumom (recimo sky)
@@ -192,38 +183,44 @@ void main() {
             photon.samples++;
             photon.radiance += (radiance - photon.radiance) / float(photon.samples); //incremental averaging, curr + (new - curr) / sample count 
             resetPhoton(state, photon);
-            w = 1.0;
-        } else if (fortuneWheel < Pa) { 
-            // absorption -> photon radiance = 0, reset the photon
-            vec3 radiance = vec3(0); //emisije ni, Le
+            // w = 1.0;
+        } else if (fortuneWheel < (F = F + Pa_control)){
+            // absorbtion in control medium
+            // F += Pa_control;
+            vec3 radiance = vec3(0);
             photon.samples++;
             photon.radiance += (radiance - photon.radiance) / float(photon.samples);
             resetPhoton(state, photon);
-            // Apply weight for absorption, Le = 0, w = mu_a * Le/... -> no weight bc no absorbtion
-            w = 1.0;
-        } else if (fortuneWheel < Pa + Ps) {
-            // scattering -> update transmittance and direction of a photon, mu_s * Ls, Ls je izracunan kot integral phase functiona * L
-            photon.transmittance *= volumeSample.rgb;
+        }else if (fortuneWheel < (F = F + Ps_control )){ //Pa + Ps?
+            // scattering in control medium
+            // F += Ps_control;
             photon.direction = sampleHenyeyGreenstein(state, uAnisotropy, photon.direction); //phase function km se odbija
             photon.bounces++;
-            // float weightS = mu_s / (majorant * Ps);
-            float weightS = Ps * (mu_s / 1.0);
-
-            w *= weightS; // Apply weight for scattering
-        } else {
-            // null collision, Ln je ubistvu L, seva samo v eno smer
-            // float weightN = max(mu_n, -mu_n) / (majorant * Pn);
-            float weightN = Pn * (mu_n / 1.0);
-
-            w *= weightN;
+            float weightS = mu_s_control / (uExtinction * Ps_control); // mu_s / (majorant * Ps)
+            photon.transmittance *= volumeSample.rgb;
+            photon.transmittance *= weightS;
+        }else if (fortuneWheel < (F = F + Pa_residual)){ 
+            // absorbtion in residual medium
+            // F += Pa_residual;
+            vec3 radiance = vec3(0);
+            photon.samples++;
+            photon.radiance += (radiance - photon.radiance) / float(photon.samples);
+            resetPhoton(state, photon);
+        }else if (fortuneWheel < (F = F + Ps_residual)){
+            // scattering in residual medium
+            // F += Ps_residual;
+            photon.direction = sampleHenyeyGreenstein(state, uAnisotropy, photon.direction); //phase function km se odbija
+            photon.bounces++;
+            float weightS = mu_s_residual / (uExtinction * Ps_residual); // mu_s / (majorant * Ps)
+            photon.transmittance *= volumeSample.rgb;
+            photon.transmittance *= weightS;
+        }else{
+            // null collision
+            float weightN = mu_n / (uExtinction * Pn); // mu_n / (majorant * Pn)
+            photon.transmittance *= weightN;
         }
-
-        // oDebug = vec4(Pa, Ps, Pn, 1.0); // Output debug values
     }
-    photon.radiance *= w;
-    // photon.radiance *= 0.0001;
-
-
+        
     oPosition = vec4(photon.position, 0);
     oDirection = vec4(photon.direction, float(photon.bounces));
     oTransmittance = vec4(photon.transmittance, 0);

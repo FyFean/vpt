@@ -24,6 +24,14 @@ constructor(gl, volume, camera, environmentTexture, options = {}) {
             min: 0,
         },
         {
+            name: 'uMajorantRatio',
+            label: 'Majorant ratio',
+            type: 'slider',
+            value: 0,
+            min: 0,
+            max: 3,
+        },
+        {
             name: 'anisotropy',
             label: 'Anisotropy',
             type: 'slider',
@@ -62,6 +70,7 @@ constructor(gl, volume, camera, environmentTexture, options = {}) {
 
         if ([
             'extinction',
+            'uMajorantRatio',
             'anisotropy',
             'bounces',
             'transferFunction',
@@ -174,6 +183,7 @@ _integrateFrame() {
     gl.activeTexture(gl.TEXTURE3);
     gl.bindTexture(gl.TEXTURE_2D, this._accumulationBuffer.getAttachments().color[3]);
     gl.uniform1i(uniforms.uRadiance, 3);
+    console.log("uRadiance uRadiance:",uniforms.uRadiance);
 
     gl.activeTexture(gl.TEXTURE4);
     gl.bindTexture(gl.TEXTURE_3D, this._volume.getTexture());
@@ -192,8 +202,12 @@ _integrateFrame() {
     gl.uniform1f(uniforms.uBlur, 0);
 
     gl.uniform1f(uniforms.uExtinction, this.extinction);
-    console.log( this.extinction, uniforms.uExtinction);
     gl.uniform1f(uniforms.uAnisotropy, this.anisotropy);
+    gl.uniform1f(uniforms.uMajorantRatio, this.uMajorantRatio);
+    // console.log( "majorant ratio:", this.uMajorantRatio);
+    // console.log( "majorant extinction:", this.extinction);
+
+
     gl.uniform1ui(uniforms.uMaxBounces, this.bounces);
     gl.uniform1ui(uniforms.uSteps, this.steps);
 

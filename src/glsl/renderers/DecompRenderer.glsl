@@ -62,6 +62,9 @@ uniform float uBlur;
 uniform float uExtinction;
 uniform float uAnisotropy;
 uniform float uMinorantRatio;
+uniform float uMajorantRatio;
+uniform float uScatteringAbsorbtionRatio;
+
 uniform uint uMaxBounces;
 uniform uint uSteps;
 
@@ -134,11 +137,11 @@ void main() {
     photon.samples = uint(radianceAndSamples.w + 0.5);
 
     /// control coefficients + probabilities
-    float mu_t_control = uMinorantRatio; // verjetno * uExtinction
+    float mu_t_control = uMinorantRatio * uExtinction; // verjetno * uExtinction
     // float mu_t_control = 0.2; // verjetno * uExtinction
 
-    float mu_s_control = 0.5 * mu_t_control; 
-    float mu_a_control = 0.5 * mu_t_control;
+    float mu_s_control = uScatteringAbsorbtionRatio * mu_t_control; 
+    float mu_a_control = (1.0 - uScatteringAbsorbtionRatio) * mu_t_control;
 
     float Pa_control = mu_a_control / uExtinction; //0.1
     float Ps_control = mu_s_control / uExtinction; //0.1
@@ -146,7 +149,7 @@ void main() {
     uint state = hash(uvec3(floatBitsToUint(mappedPosition.x), floatBitsToUint(mappedPosition.y), floatBitsToUint(uRandSeed)));
     for (uint i = 0u; i < uSteps; i++) {
 
-        float dist = random_exponential(state, uExtinction);
+        float dist = random_exponential(state, uExtinction * uMajorantRatio);
         photon.position += dist * photon.direction;
         vec4 volumeSample = sampleVolumeColor(photon.position);
 
@@ -160,12 +163,8 @@ void main() {
         float mu_s_residual = mu_s - mu_s_control;
         float mu_a_residual = mu_a - mu_a_control;
 
-        float mu_n = uExtinction - mu_t_control - mu_t_residual; // majorant - mu_t_c - mu_t_r 
-
-        // float mu_t_residual = volumeSample.a * uExtinction; // majorant = uExtinction zdj
-        // float mu_n = (uExtinction - volumeSample.a) * uExtinction; 
-        // float mu_s_residual =  max3(volumeSample.rgb) * mu_t_residual;
-        // float mu_a_residual = (1.0 - max3(volumeSample.rgb)) * mu_t_residual;
+        // float mu_n = uExtinction - mu_t_control - mu_t_residual; // majorant - mu_t_c - mu_t_r 
+        float mu_n = (uMajorantRatio - volumeSample.a) * uExtinction; // majorant - mu_t_c - mu_t_r 
 
 
         float spodi = (max(mu_a_residual, -mu_a_residual) + max(mu_s_residual, -mu_s_residual) + max(mu_n, -mu_n));
@@ -188,6 +187,9 @@ void main() {
             // absorbtion in control medium
             // F += Pa_control;
             vec3 radiance = vec3(0);
+            float weightA = mu_a_control / (uExtinction * uMajorantRatio * Pa_control); // mu_n / (majorant * Pn)
+            photon.transmittance *= weightA;
+
             photon.samples++;
             photon.radiance += (radiance - photon.radiance) / float(photon.samples);
             resetPhoton(state, photon);
@@ -196,13 +198,15 @@ void main() {
             // F += Ps_control;
             photon.direction = sampleHenyeyGreenstein(state, uAnisotropy, photon.direction); //phase function km se odbija
             photon.bounces++;
-            float weightS = mu_s_control / (uExtinction * Ps_control); // mu_s / (majorant * Ps)
+            float weightS = mu_s_control / (uExtinction * uMajorantRatio *Ps_control); // mu_s / (majorant * Ps)
             photon.transmittance *= volumeSample.rgb;
             photon.transmittance *= weightS;
         }else if (fortuneWheel < (F = F + Pa_residual)){ 
             // absorbtion in residual medium
             // F += Pa_residual;
             vec3 radiance = vec3(0);
+            float weightA = mu_a_residual / (uExtinction * uMajorantRatio * Pa_residual); // mu_n / (majorant * Pn)
+            photon.transmittance *= weightA;
             photon.samples++;
             photon.radiance += (radiance - photon.radiance) / float(photon.samples);
             resetPhoton(state, photon);
@@ -211,7 +215,7 @@ void main() {
             // F += Ps_residual;
             photon.direction = sampleHenyeyGreenstein(state, uAnisotropy, photon.direction); //phase function km se odbija
             photon.bounces++;
-            float weightS = mu_s_residual / (uExtinction * Ps_residual); // mu_s / (majorant * Ps)
+            float weightS = mu_s_residual / (uExtinction * uMajorantRatio * Ps_residual); // mu_s / (majorant * Ps)
             photon.transmittance *= volumeSample.rgb;
             photon.transmittance *= weightS;
         }else{

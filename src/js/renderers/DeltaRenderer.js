@@ -27,9 +27,9 @@ constructor(gl, volume, camera, environmentTexture, options = {}) {
             name: 'uMajorantRatio',
             label: 'Majorant ratio',
             type: 'slider',
-            value: 0,
+            value: 1,
             min: 0,
-            max: 3,
+            max: 2,
         },
         {
             name: 'anisotropy',
@@ -183,7 +183,7 @@ _integrateFrame() {
     gl.activeTexture(gl.TEXTURE3);
     gl.bindTexture(gl.TEXTURE_2D, this._accumulationBuffer.getAttachments().color[3]);
     gl.uniform1i(uniforms.uRadiance, 3);
-    console.log("uRadiance uRadiance:",uniforms.uRadiance);
+    console.log("majorant uRadiance:",uniforms.uRadiance);
 
     gl.activeTexture(gl.TEXTURE4);
     gl.bindTexture(gl.TEXTURE_3D, this._volume.getTexture());

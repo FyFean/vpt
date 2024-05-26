@@ -137,14 +137,14 @@ void main() {
     photon.samples = uint(radianceAndSamples.w + 0.5);
 
     /// control coefficients + probabilities
-    float mu_t_control = uMinorantRatio * uExtinction; // verjetno * uExtinction
-    // float mu_t_control = 0.2; // verjetno * uExtinction
+    float mu_t_control = uMinorantRatio * uExtinction;
 
     float mu_s_control = uScatteringAbsorbtionRatio * mu_t_control; 
-    float mu_a_control = (1.0 - uScatteringAbsorbtionRatio) * mu_t_control;
+    float mu_a_control = mu_t_control - mu_s_control;
 
-    float Pa_control = mu_a_control / uExtinction; //0.1
-    float Ps_control = mu_s_control / uExtinction; //0.1
+    float Pa_control = mu_a_control / (uMajorantRatio * uExtinction);
+    float Ps_control = mu_s_control / (uMajorantRatio * uExtinction);
+
 
     uint state = hash(uvec3(floatBitsToUint(mappedPosition.x), floatBitsToUint(mappedPosition.y), floatBitsToUint(uRandSeed)));
     for (uint i = 0u; i < uSteps; i++) {
@@ -168,7 +168,7 @@ void main() {
 
 
         float spodi = (max(mu_a_residual, -mu_a_residual) + max(mu_s_residual, -mu_s_residual) + max(mu_n, -mu_n));
-        float Pnot_control = (1.0 - mu_t_control / uExtinction);
+        float Pnot_control = (1.0 - mu_t_control / (uMajorantRatio * uExtinction));
         float Pa_residual = Pnot_control * ( max(mu_a_residual, -mu_a_residual) / spodi);
         float Ps_residual = Pnot_control * ( max(mu_s_residual, -mu_s_residual) / spodi);
         float Pn = Pnot_control * ( max(mu_n, -mu_n) / spodi);
@@ -198,7 +198,7 @@ void main() {
             // F += Ps_control;
             photon.direction = sampleHenyeyGreenstein(state, uAnisotropy, photon.direction); //phase function km se odbija
             photon.bounces++;
-            float weightS = mu_s_control / (uExtinction * uMajorantRatio *Ps_control); // mu_s / (majorant * Ps)
+            float weightS = mu_s_control / (uExtinction * uMajorantRatio * Ps_control); // mu_s / (majorant * Ps)
             photon.transmittance *= volumeSample.rgb;
             photon.transmittance *= weightS;
         }else if (fortuneWheel < (F = F + Pa_residual)){ 
@@ -220,7 +220,7 @@ void main() {
             photon.transmittance *= weightS;
         }else{
             // null collision
-            float weightN = mu_n / (uExtinction * Pn); // mu_n / (majorant * Pn)
+            float weightN = mu_n / (uExtinction * uMajorantRatio * Pn); // mu_n / (majorant * Pn)
             photon.transmittance *= weightN;
         }
     }

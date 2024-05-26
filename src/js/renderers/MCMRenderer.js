@@ -83,6 +83,7 @@ destroy() {
 }
 
 _resetFrame() {
+
     const gl = this._gl;
 
     const { program, uniforms } = this._programs.reset;
@@ -113,12 +114,15 @@ _resetFrame() {
     ]);
 
     gl.drawArrays(gl.TRIANGLES, 0, 3);
+
 }
 
 _generateFrame() {
 }
 
 _integrateFrame() {
+    console.time('_integrateFrame'); // Start timing _integrateFrame
+
     const gl = this._gl;
 
     const { program, uniforms } = this._programs.integrate;
@@ -182,9 +186,12 @@ _integrateFrame() {
     ]);
 
     gl.drawArrays(gl.TRIANGLES, 0, 3);
+    console.timeEnd('_integrateFrame'); // End timing _integrateFrame
+
 }
 
 _renderFrame() {
+
     const gl = this._gl;
 
     const { program, uniforms } = this._programs.render;
@@ -196,6 +203,7 @@ _renderFrame() {
     gl.uniform1i(uniforms.uColor, 0);
 
     gl.drawArrays(gl.TRIANGLES, 0, 3);
+
 }
 
 _getFrameBufferSpec() {

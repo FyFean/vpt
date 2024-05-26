@@ -9,7 +9,6 @@ const vec2 vertices[] = vec2[](
 );
 
 out vec2 vPosition;
-out vec4 oDebug; // Add this line to declare oDebug
 
 
 void main() {
@@ -74,6 +73,8 @@ layout (location = 0) out vec4 oPosition;
 layout (location = 1) out vec4 oDirection;
 layout (location = 2) out vec4 oTransmittance;
 layout (location = 3) out vec4 oRadiance;
+layout (location = 4) out vec4 oDebug; // Output debug information
+
 
 void resetPhoton(inout uint state, inout Photon photon) {
     vec3 from, to;
@@ -147,11 +148,16 @@ void main() {
 
 
     uint state = hash(uvec3(floatBitsToUint(mappedPosition.x), floatBitsToUint(mappedPosition.y), floatBitsToUint(uRandSeed)));
+    float totalDistance = 0.0;
+    uint lookupCount = 0u;
+
     for (uint i = 0u; i < uSteps; i++) {
 
         float dist = random_exponential(state, uExtinction * uMajorantRatio);
         photon.position += dist * photon.direction;
         vec4 volumeSample = sampleVolumeColor(photon.position);
+        lookupCount++;
+        totalDistance += dist;
 
         ///normal coeff od prej
         float mu_t = volumeSample.a * uExtinction; // extinction coeffx
@@ -182,10 +188,9 @@ void main() {
             photon.samples++;
             photon.radiance += (radiance - photon.radiance) / float(photon.samples); //incremental averaging, curr + (new - curr) / sample count 
             resetPhoton(state, photon);
-            // w = 1.0;
+
         } else if (fortuneWheel < (F = F + Pa_control)){
             // absorbtion in control medium
-            // F += Pa_control;
             vec3 radiance = vec3(0);
             float weightA = mu_a_control / (uExtinction * uMajorantRatio * Pa_control); // mu_n / (majorant * Pn)
             photon.transmittance *= weightA;
@@ -195,7 +200,6 @@ void main() {
             resetPhoton(state, photon);
         }else if (fortuneWheel < (F = F + Ps_control )){ //Pa + Ps?
             // scattering in control medium
-            // F += Ps_control;
             photon.direction = sampleHenyeyGreenstein(state, uAnisotropy, photon.direction); //phase function km se odbija
             photon.bounces++;
             float weightS = mu_s_control / (uExtinction * uMajorantRatio * Ps_control); // mu_s / (majorant * Ps)
@@ -203,7 +207,6 @@ void main() {
             photon.transmittance *= weightS;
         }else if (fortuneWheel < (F = F + Pa_residual)){ 
             // absorbtion in residual medium
-            // F += Pa_residual;
             vec3 radiance = vec3(0);
             float weightA = mu_a_residual / (uExtinction * uMajorantRatio * Pa_residual); // mu_n / (majorant * Pn)
             photon.transmittance *= weightA;
@@ -212,7 +215,6 @@ void main() {
             resetPhoton(state, photon);
         }else if (fortuneWheel < (F = F + Ps_residual)){
             // scattering in residual medium
-            // F += Ps_residual;
             photon.direction = sampleHenyeyGreenstein(state, uAnisotropy, photon.direction); //phase function km se odbija
             photon.bounces++;
             float weightS = mu_s_residual / (uExtinction * uMajorantRatio * Ps_residual); // mu_s / (majorant * Ps)
@@ -229,6 +231,7 @@ void main() {
     oDirection = vec4(photon.direction, float(photon.bounces));
     oTransmittance = vec4(photon.transmittance, 0);
     oRadiance = vec4(photon.radiance, float(photon.samples));
+    oDebug = vec4(float(999.0), 123.0, 0.0, 1.0);
 }
 
 // #part /glsl/shaders/renderers/DECOMP/render/vertex
@@ -316,6 +319,7 @@ layout (location = 1) out vec4 oDirection;
 layout (location = 2) out vec4 oTransmittance;
 layout (location = 3) out vec4 oRadiance;
 
+
 void main() {
     Photon photon;
     vec3 from, to;
@@ -332,4 +336,5 @@ void main() {
     oDirection = vec4(photon.direction, float(photon.bounces));
     oTransmittance = vec4(photon.transmittance, 0);
     oRadiance = vec4(photon.radiance, float(photon.samples));
+    
 }

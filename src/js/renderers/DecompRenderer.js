@@ -27,7 +27,7 @@ constructor(gl, volume, camera, environmentTexture, options = {}) {
             name: 'uMajorantRatio',
             label: 'Majorant ratio',
             type: 'slider',
-            value: 1,
+            value: 0.6,
             min: 0,
             max: 2,
         },
@@ -35,7 +35,7 @@ constructor(gl, volume, camera, environmentTexture, options = {}) {
             name: 'minorant_ratio',
             label: 'Minorant ratio',
             type: 'slider',
-            value: 0.25,
+            value: 0.3,
             min: 0,
             max: 1,
         },
@@ -140,6 +140,8 @@ destroy() {
 }
 
 _resetFrame() {
+    console.time('_resetFrame'); // Start timing _resetFrame
+
     const gl = this._gl;
 
     const { program, uniforms } = this._programs.reset;
@@ -175,12 +177,16 @@ _resetFrame() {
 
     gl.drawArrays(gl.TRIANGLES, 0, 3);
     // gl.bindFramebuffer(gl.FRAMEBUFFER, null); // Unbind framebuffer
+    console.timeEnd('_resetFrame'); // End timing _resetFrame
+
 }
 
 _generateFrame() {
 }
 
 _integrateFrame() {
+    console.time('_integrateFrame'); // Start timing _integrateFrame
+
     const gl = this._gl;
 
     const { program, uniforms } = this._programs.integrate;
@@ -225,8 +231,8 @@ _integrateFrame() {
 
     
 
-    console.log("minorant_ratio", this.minorant_ratio);
-    console.log("uMajorantRatio", this.uMajorantRatio);
+    // console.log("minorant_ratio", this.minorant_ratio);
+    // console.log("uMajorantRatio", this.uMajorantRatio);
 
 
     gl.uniform1f(uniforms.uAnisotropy, this.anisotropy);
@@ -254,9 +260,12 @@ _integrateFrame() {
     ]);
 
     gl.drawArrays(gl.TRIANGLES, 0, 3);
+    console.timeEnd('_integrateFrame'); // End timing _integrateFrame
+
 }
 
 _renderFrame() {
+
     const gl = this._gl;
 
     const { program, uniforms } = this._programs.render;
@@ -284,6 +293,7 @@ _renderFrame() {
     //     const Pn = pixels[i + 2] / 255.0;
     //     console.log(`Pa: ${Pa}, Ps: ${Ps}, Pn: ${Pn}`);
     // }
+    
 }
 
 _getFrameBufferSpec() {

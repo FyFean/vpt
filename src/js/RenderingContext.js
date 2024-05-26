@@ -194,8 +194,10 @@ render() {
     if (!gl || !this.renderer || !this.toneMapper) {
         return;
     }
-
+    // console.time('***************renderer');
     this.renderer.render();
+    // console.timeEnd('***************renderer'); // End timing _resetFrame
+
     this.toneMapper.render();
 
     const { program, uniforms } = this.program;

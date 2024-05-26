@@ -122,6 +122,7 @@ destroy() {
 }
 
 _resetFrame() {
+    // console.time('_resetFrame'); // Start timing _resetFrame
     const gl = this._gl;
 
     const { program, uniforms } = this._programs.reset;
@@ -157,12 +158,15 @@ _resetFrame() {
 
     gl.drawArrays(gl.TRIANGLES, 0, 3);
     // gl.bindFramebuffer(gl.FRAMEBUFFER, null); // Unbind framebuffer
+
+    // console.timeEnd('_resetFrame'); // End timing _resetFrame
 }
 
 _generateFrame() {
 }
 
 _integrateFrame() {
+    console.time('_integrateFrame'); // Start timing _integrateFrame
     const gl = this._gl;
 
     const { program, uniforms } = this._programs.integrate;
@@ -183,7 +187,7 @@ _integrateFrame() {
     gl.activeTexture(gl.TEXTURE3);
     gl.bindTexture(gl.TEXTURE_2D, this._accumulationBuffer.getAttachments().color[3]);
     gl.uniform1i(uniforms.uRadiance, 3);
-    console.log("majorant uRadiance:",uniforms.uRadiance);
+    // console.log("majorant uRadiance:",uniforms.uRadiance);
 
     gl.activeTexture(gl.TEXTURE4);
     gl.bindTexture(gl.TEXTURE_3D, this._volume.getTexture());
@@ -232,9 +236,11 @@ _integrateFrame() {
     ]);
 
     gl.drawArrays(gl.TRIANGLES, 0, 3);
+    console.timeEnd('_integrateFrame'); // End timing _integrateFrame
 }
 
 _renderFrame() {
+    // console.time('_renderFrame'); // Start timing _renderFrame
     const gl = this._gl;
 
     const { program, uniforms } = this._programs.render;
@@ -262,6 +268,7 @@ _renderFrame() {
     //     const Pn = pixels[i + 2] / 255.0;
     //     console.log(`Pa: ${Pa}, Ps: ${Ps}, Pn: ${Pn}`);
     // }
+    // console.timeEnd('_renderFrame'); // End timing _renderFrame
 }
 
 _getFrameBufferSpec() {

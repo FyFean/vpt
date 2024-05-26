@@ -7,4 +7,5 @@ struct Photon {
     vec3 radiance;
     uint bounces;
     uint samples;
+    uint oDebug;
 };

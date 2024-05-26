@@ -19,6 +19,7 @@ export class Application {
 
 constructor() {
     this._handleFileDrop = this._handleFileDrop.bind(this);
+    console.error("hemlo")
     this._handleRendererChange = this._handleRendererChange.bind(this);
     this._handleToneMapperChange = this._handleToneMapperChange.bind(this);
     this._handleVolumeLoad = this._handleVolumeLoad.bind(this);

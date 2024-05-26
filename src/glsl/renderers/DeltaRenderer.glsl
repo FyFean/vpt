@@ -161,7 +161,6 @@ void main() {
         float Pa = mu_a / (mu_t +  max(mu_n, -mu_n)); // mu_a / (mu_t + abs(mu_n))
         float Ps = (photon.bounces >= uMaxBounces) ? 0.0 :  mu_s / (mu_t +  max(mu_n, -mu_n)); // mu_s / (mu_t + abs(mu_n))
         float Pn = max(mu_n, -mu_n) / (mu_t +  max(mu_n, -mu_n)); // abs(mu_n) / (mu_t + abs(mu_n))
-
         // float totalP = Pa + Ps + Pn;
         float fortuneWheel = random_uniform(state) * uMajorantRatio; // [0,majorant]
         // float fortuneWheel = random_uniform(state) * majorant; // [0,majorant]
